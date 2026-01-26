@@ -71,26 +71,26 @@
 ## Screenshots
 | **Audio Player & Playlist** 
 |:---:|:---:|
-| ![Audio Player] (docs/images/a1.png) | ![Audio Playlist] (docs/images/a2.png) |
+| ![Audio Player](docs/images/a1.png) | ![Audio Playlist](docs/images/a2.png) |
 
 | **Video Player & Playlist**
 |:---:|:---:|
-| ![Video Player] (docs/images/v1.png) | ![Video Playlist] (docs/images/v2.png) |
+| ![Video Player](docs/images/v1.png) | ![Video Playlist](docs/images/v2.png) |
 
 | **Bio** 
 |:---:|:---:| 
-| ![Bio] (docs/images/b1.png) |
+| ![Bio](docs/images/b1.png) |
 
 | **Links** 
 |:---:|:---:| 
-| ![Link] (docs/images/l1.png) |
+| ![Link](docs/images/l1.png) |
 
 | **Rewards & Achievements** 
 |:---:|:---:| 
-| ![Rewards] (docs/images/r1.png) | ![Achievements] (docs/images/r2.png) |
+| ![Rewards](docs/images/r1.png) | ![Achievements](docs/images/r2.png) |
 
 |**Search Functionality**
 |:---:|:---:|
-| ![Search] (docs/images/s1.png) | ![Live Filtering] (docs/images/s2.png) |
+| ![Search](docs/images/s1.png) | ![Live Filtering](docs/images/s2.png) |
 
 ---
