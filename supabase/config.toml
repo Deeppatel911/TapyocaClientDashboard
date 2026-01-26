@@ -1,0 +1,7 @@
+project_id = "pmrqueeoojexmuuyefba"
+
+[functions.media-api]
+verify_jwt = false
+
+[functions.file-upload]
+verify_jwt = true
