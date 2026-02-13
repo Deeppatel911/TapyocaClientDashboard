@@ -7,10 +7,11 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Slider } from '@/components/ui/slider';
 import { useSupabaseData, AudioTrack } from '@/hooks/useSupabaseData';
 import { usePlayerState } from '@/hooks/usePlayerState';
+import { usePlaylistOrder } from '@/hooks/usePlaylistOrder';
 import { LyricsDisplay } from './LyricsDisplay';
 import { ShoppingCartIcon } from './ShoppingCartIcon';
-import { DraggablePlaylist } from './DraggablePlaylist';
-import { HiOutlineQueueList, HiOutlinePlay, HiOutlinePause, HiOutlineBackward, HiOutlineForward } from 'react-icons/hi2';
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { HiOutlineQueueList, HiOutlinePlay, HiOutlinePause, HiOutlineBackward, HiOutlineForward, HiOutlineBars3 } from 'react-icons/hi2';
 import { BiShuffle, BiRepeat } from 'react-icons/bi';
 import { BsSpeedometer2 } from 'react-icons/bs';
 import { HiOutlineVolumeUp, HiOutlineVolumeOff, HiOutlineClock } from 'react-icons/hi';
@@ -27,10 +28,11 @@ interface AudioPlayerProps {
 export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: AudioPlayerProps = {}) => {
   const { audioTracks, isLoading } = useSupabaseData();
   const playerState = usePlayerState();
+  const { savePlaylistOrder, applyOrderToTracks, isLoading: isOrderLoading } = usePlaylistOrder();
   
   const [currentTrack, setCurrentTrack] = useState<AudioTrack | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [showPlaylist, setShowPlaylist] = useState(false);
+  const [showPlaylist, setShowPlaylist] = useState(true);
   const [isShuffling, setIsShuffling] = useState(false);
   const [repeatMode, setRepeatMode] = useState<'none' | 'all' | 'one'>('none');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -48,16 +50,18 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
   const [delayBetweenTracks, setDelayBetweenTracks] = useState(0); // seconds
   const [showLyrics, setShowLyrics] = useState(false);
   const [hasRestoredState, setHasRestoredState] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
   
   const audioRef = useRef<H5AudioPlayer>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize ordered tracks from audioTracks
+  // Initialize ordered tracks from audioTracks with user's custom order
   useEffect(() => {
-    if (audioTracks.length > 0 && orderedTracks.length === 0) {
-      setOrderedTracks(audioTracks);
+    if (audioTracks.length > 0 && !isOrderLoading) {
+      const orderedTracks = applyOrderToTracks(audioTracks, 'audio');
+      setOrderedTracks(orderedTracks);
     }
-  }, [audioTracks, orderedTracks.length]);
+  }, [audioTracks, isOrderLoading, applyOrderToTracks]);
 
   // Restore player state from localStorage on mount
   useEffect(() => {
@@ -113,17 +117,46 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
     }
   }, [currentTrack, currentIndex, currentTime, duration, isPlaying, volume, playbackSpeed, repeatMode, isShuffling]);
 
-  // Handle track reordering from draggable playlist
-  const handleTrackReorder = (reorderedTracks: AudioTrack[]) => {
-    setOrderedTracks(reorderedTracks);
+  // Handle track reordering with drag & drop
+  const handleDragEnd = (result: DropResult) => {
+    console.log('Drag end called:', result);
+    
+    if (!result.destination) {
+      console.log('No destination, returning');
+      return;
+    }
+
+    const items = Array.from(orderedTracks);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+
+    console.log('New order:', items.map(t => t.id));
+
+    setOrderedTracks(items);
     // Update current index based on current track's new position
     if (currentTrack) {
-      const newIndex = reorderedTracks.findIndex(t => t.id === currentTrack.id);
+      const newIndex = items.findIndex(t => t.id === currentTrack.id);
       if (newIndex !== -1) {
         setCurrentIndex(newIndex);
       }
     }
-    toast.success('Playlist order updated');
+    setIsReordering(false);
+    
+    // Save the new order to database
+    const orderIds = items.map(track => track.id);
+    console.log('Saving order IDs:', orderIds);
+    const success = savePlaylistOrder('audio', orderIds);
+    console.log('Save result:', success);
+    
+    if (success) {
+      toast.success('Playlist order updated');
+    } else {
+      toast.error('Failed to update playlist order');
+    }
+  };
+
+  const handleDragStart = () => {
+    setIsReordering(true);
   };
 
   // Countdown timer logic
@@ -218,7 +251,6 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
   const handleTrackSelect = (track: AudioTrack, index: number) => {
     setCurrentTrack(track);
     setCurrentIndex(index);
-    setShowPlaylist(false);
     onTrackPlay?.(track, index);
     // Auto-play the selected track
     setTimeout(() => {
@@ -605,15 +637,6 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
             className="h-9 px-2"
             title="Skip & delay settings"
           >
-            <span className="text-xs">{skipInterval}s</span>
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setShowPlaylist(!showPlaylist)}
-            className="w-9 h-9"
-          >
             <HiOutlineQueueList className="w-4 h-4" />
           </Button>
         </div>
@@ -685,6 +708,111 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
             )}
           </Card>
         )}
+
+        {/* Playlist Section */}
+        <Card className="w-full max-w-md mt-4">
+          <div className="p-3 border-b">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-medium">Playlist</h3>
+              <span className="text-xs text-muted-foreground">{orderedTracks.length} tracks</span>
+            </div>
+          </div>
+          <ScrollArea className="h-48">
+            <div className="p-2">
+              <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
+                <Droppable droppableId="inline-playlist">
+                  {(provided, snapshot) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className={`space-y-1 ${
+                        snapshot.isDraggingOver ? 'bg-primary/5 rounded-lg p-2' : ''
+                      }`}
+                    >
+                      {orderedTracks.map((track, index) => (
+                        <Draggable 
+                          key={track.id} 
+                          draggableId={track.id} 
+                          index={index}
+                        >
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all ${
+                                snapshot.isDragging
+                                  ? 'shadow-lg scale-105 bg-primary/20 border border-primary/30'
+                                  : currentIndex === index
+                                  ? 'bg-primary/20 border border-primary/30'
+                                  : 'hover:bg-muted/50'
+                              } ${
+                                isReordering ? 'pointer-events-none' : ''
+                              }`}
+                              onClick={() => !isReordering && handleTrackSelect(track, index)}
+                            >
+                              {/* Drag Handle */}
+                              <div
+                                {...provided.dragHandleProps}
+                                className="flex-shrink-0 p-1 hover:bg-white/10 rounded cursor-grab active:cursor-grabbing opacity-50 hover:opacity-100"
+                              >
+                                <HiOutlineBars3 className="w-4 h-4" />
+                              </div>
+
+                              {/* Track Number */}
+                              <div className="w-6 text-sm font-mono text-muted-foreground">
+                                {index + 1}
+                              </div>
+
+                              <div className="w-8 h-8 bg-secondary rounded overflow-hidden flex-shrink-0">
+                                <img
+                                  src={track.cover_image_url || '/placeholder-cover.jpg'}
+                                  alt={formatTitle(track.title)}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    e.currentTarget.src = '/placeholder-cover.jpg';
+                                  }}
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm font-medium truncate">{formatTitle(track.title)}</p>
+                                <p className="text-xs text-muted-foreground truncate">{track.artist?.name || 'Unknown Artist'}</p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                <span className="text-xs text-muted-foreground">
+                                  {track.duration 
+                                    ? `${Math.floor(track.duration / 60)}:${(track.duration % 60).toString().padStart(2, '0')}` 
+                                    : ''
+                                  }
+                                </span>
+                                {track.has_shopping_cart && (
+                                  <ShoppingCartIcon 
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleBuyClick(track);
+                                    }}
+                                    className="opacity-70 hover:opacity-100"
+                                  />
+                                )}
+                                {currentIndex === index && isPlaying && (
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-1 h-3 bg-primary rounded-full animate-pulse"></div>
+                                    <div className="w-1 h-3 bg-primary rounded-full animate-pulse delay-75"></div>
+                                    <div className="w-1 h-3 bg-primary rounded-full animate-pulse delay-150"></div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            </div>
+          </ScrollArea>
+        </Card>
       </div>
 
       {/* Hidden Audio Player for functionality */}
@@ -726,16 +854,6 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
         />
       </div>
 
-      {/* Draggable Playlist Overlay */}
-      {showPlaylist && (
-        <DraggablePlaylist
-          tracks={orderedTracks}
-          currentIndex={currentIndex}
-          onTrackSelect={handleTrackSelect}
-          onTrackReorder={handleTrackReorder}
-          onClose={() => setShowPlaylist(false)}
-        />
-      )}
     </div>
   );
 };

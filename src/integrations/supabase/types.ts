@@ -1258,6 +1258,33 @@ export type Database = {
           },
         ]
       }
+      user_playlist_orders: {
+        Row: {
+          id: string
+          user_id: string
+          audio_order: string[]
+          video_order: string[]
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          audio_order?: string[]
+          video_order?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          audio_order?: string[]
+          video_order?: string[]
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
