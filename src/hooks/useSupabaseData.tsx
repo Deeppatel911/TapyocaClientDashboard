@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeSubscription } from './useRealtimeSubscription';
+import { useAdvancedAudioMetadata } from './useAdvancedAudioMetadata';
 
 export interface Artist {
   id: string;
@@ -89,17 +90,29 @@ export const useSupabaseData = () => {
                 .filter(file => file.name && !file.name.includes('.emptyFolderPlaceholder') && 
                        (file.name.endsWith('.mp3') || file.name.endsWith('.wav') || file.name.endsWith('.m4a')))
                 .forEach((file, index) => {
+                  // Extract artist name from folder name or try to parse from filename
+                  let artistName = folder.name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown Artist';
+                  
+                  // Try to extract better artist name from filename format "Artist - Title"
+                  const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+                  if (fileNameWithoutExt.includes(' - ')) {
+                    const parts = fileNameWithoutExt.split(' - ');
+                    if (parts.length >= 2) {
+                      artistName = parts[0].trim();
+                    }
+                  }
+                  
                   processedAudioTracks.push({
                     id: `audio-${folder.name}-${index}`,
-                    artist_id: 'default-artist',
-                    title: file.name.replace(/\.[^/.]+$/, ''),
+                    artist_id: folder.name,
+                    title: fileNameWithoutExt,
                     audio_url: supabase.storage.from('music-files').getPublicUrl(`${folder.name}/${file.name}`).data.publicUrl,
                     cover_image_url: artworkFiles?.[0] ? 
                       supabase.storage.from('artwork').getPublicUrl(artworkFiles[0].name).data.publicUrl : 
                       '/placeholder-cover.jpg',
                     duration: null,
-                    has_shopping_cart: true,
-                    artist: { id: 'default-artist', name: 'March For Equity', bio: null, image_url: null }
+                    has_shopping_cart: false,
+                    artist: { id: folder.name, name: artistName, bio: null, image_url: null }
                   });
                 });
             }
@@ -121,16 +134,28 @@ export const useSupabaseData = () => {
                 .filter(file => file.name && !file.name.includes('.emptyFolderPlaceholder') && 
                        (file.name.endsWith('.mp4') || file.name.endsWith('.mov') || file.name.endsWith('.avi')))
                 .forEach((file, index) => {
+                  // Extract artist name from folder name or try to parse from filename
+                  let artistName = folder.name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown Artist';
+                  
+                  // Try to extract better artist name from filename format "Artist - Title"
+                  const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
+                  if (fileNameWithoutExt.includes(' - ')) {
+                    const parts = fileNameWithoutExt.split(' - ');
+                    if (parts.length >= 2) {
+                      artistName = parts[0].trim();
+                    }
+                  }
+                  
                   processedVideoTracks.push({
                     id: `video-${folder.name}-${index}`,
-                    artist_id: 'default-artist',
-                    title: file.name.replace(/\.[^/.]+$/, ''),
+                    artist_id: folder.name,
+                    title: fileNameWithoutExt,
                     video_url: supabase.storage.from('video-files').getPublicUrl(`${folder.name}/${file.name}`).data.publicUrl,
                     thumbnail_url: artworkFiles?.[1] ? 
                       supabase.storage.from('artwork').getPublicUrl(artworkFiles[1].name).data.publicUrl : 
                       '/placeholder-thumbnail.jpg',
                     duration: null,
-                    artist: { id: 'default-artist', name: 'March For Equity', bio: null, image_url: null }
+                    artist: { id: folder.name, name: artistName, bio: null, image_url: null }
                   });
                 });
             }

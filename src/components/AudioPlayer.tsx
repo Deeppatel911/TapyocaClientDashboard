@@ -443,16 +443,9 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
         onClose={() => setShowLyrics(false)}
       />
 
-      {/* Header */}
-      <div className="absolute top-16 left-0 right-0 p-4 z-10">
-        <div className="text-center">
-          <h1 className="text-lg font-bold text-foreground mb-2">ALL POINTS WEST</h1>
-          <p className="text-sm text-muted-foreground">DISTILLERY, NEWARK NJ</p>
-        </div>
-      </div>
-
+      
       {/* Main Content */}
-      <div className="pt-32 pb-28 px-4 sm:px-6 h-full flex flex-col items-center justify-center">
+      <div className="pt-48 pb-28 px-4 sm:px-6 h-full flex flex-col items-center justify-center">
         {/* Album Cover with Buy Button */}
         <div className="mb-4 relative">
           <div className="w-36 h-36 sm:w-48 sm:h-48 bg-secondary rounded-lg shadow-warm overflow-hidden">

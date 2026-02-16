@@ -334,17 +334,9 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
 
   return (
     <div className="h-screen bg-transparent relative overflow-hidden">
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 p-4 z-10">
-        <div className="text-center">
-          <h1 className="text-lg font-bold text-music-text mb-2">SPONSORS</h1>
-          <h2 className="text-lg font-bold text-music-text mb-2">&</h2>
-          <h3 className="text-lg font-bold text-music-text">PARTNERS</h3>
-        </div>
-      </div>
-
+      
       {/* Main Content - Account for bottom navigation */}
-      <div className="pt-16 pb-28 px-4 h-full flex flex-col">
+      <div className="pt-8 pb-28 px-4 h-full flex flex-col">
         {/* Video Player */}
         <div className="flex-1 flex items-center justify-center mb-4">
           <div

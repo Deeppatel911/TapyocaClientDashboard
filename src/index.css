@@ -6,73 +6,73 @@
 
 @layer base {
   :root {
-    /* Tapyoca Brand Colors: #F4E9C1 (cream), #C87343 (terracotta), #220C10 (dark brown) */
-    --background: 45 55% 85%; /* #F4E9C1 converted to HSL */
-    --foreground: 350 48% 10%; /* #220C10 converted to HSL */
+    /* Modern Teal Theme Colors */
+    --background: 210 25% 12%; /* #0f2027 converted to HSL */
+    --foreground: 210 15% 85%; /* Light text for dark background */
 
-    --card: 45 55% 85%;
-    --card-foreground: 350 48% 10%;
+    --card: 210 25% 18%;
+    --card-foreground: 210 15% 85%;
 
-    --popover: 45 55% 85%;
-    --popover-foreground: 350 48% 10%;
+    --popover: 210 25% 18%;
+    --popover-foreground: 210 15% 85%;
 
-    --primary: 20 55% 52%; /* #C87343 converted to HSL */
-    --primary-foreground: 45 55% 92%;
+    --primary: 190 60% 50%; /* Teal accent */
+    --primary-foreground: 210 15% 95%;
 
-    --secondary: 350 48% 15%;
-    --secondary-foreground: 45 55% 92%;
+    --secondary: 210 25% 22%;
+    --secondary-foreground: 210 15% 85%;
 
-    --muted: 45 30% 75%;
-    --muted-foreground: 350 30% 35%;
+    --muted: 210 25% 15%;
+    --muted-foreground: 210 15% 65%;
 
-    --accent: 20 55% 52%;
-    --accent-foreground: 45 55% 92%;
+    --accent: 190 60% 50%;
+    --accent-foreground: 210 15% 95%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 45 55% 92%;
+    --destructive-foreground: 210 15% 95%;
 
-    --border: 45 30% 75%;
-    --input: 45 30% 75%;
-    --ring: 20 55% 52%;
+    --border: 210 25% 22%;
+    --input: 210 25% 22%;
+    --ring: 190 60% 50%;
 
     --radius: 0.75rem;
 
-    /* Music App Specific Colors - Tapyoca Brand */
-    --music-gradient: linear-gradient(135deg, hsl(45 55% 85%) 0%, hsl(20 55% 52%) 100%);
-    --music-dark: hsl(350 48% 10%);
-    --music-light: hsl(45 55% 85%);
-    --music-accent: hsl(20 55% 52%);
-    --music-text: hsl(350 48% 10%);
-    --music-text-light: hsl(45 55% 92%);
+    /* Music App Specific Colors - Modern Teal Theme */
+    --music-gradient: linear-gradient(135deg, #0f2027 0%, #2c5364 100%);
+    --music-dark: #0f2027;
+    --music-light: #e8f1f5;
+    --music-accent: #2c5364;
+    --music-text: #e8f1f5;
+    --music-text-light: #f0f8ff;
     
     /* Playlist Background */
-    --playlist-item: hsl(350 35% 20%);
-    --playlist-item-active: hsl(20 55% 52%);
-    --playlist-item-hover: hsl(350 40% 25%);
+    --playlist-item: #1e3a5f;
+    --playlist-item-active: #2c5364;
+    --playlist-item-hover: #203a43;
 
-    /* Enhanced Gradients - Tapyoca Brand */
-    --gradient-main: linear-gradient(135deg, hsl(45 55% 85%) 0%, hsl(20 55% 52%) 100%);
-    --gradient-dark: linear-gradient(135deg, hsl(350 48% 10%) 0%, hsl(350 40% 18%) 100%);
-    --gradient-primary: linear-gradient(135deg, hsl(20 55% 52%) 0%, hsl(20 55% 62%) 100%);
-    --gradient-subtle: linear-gradient(180deg, hsl(45 55% 90%) 0%, hsl(45 55% 85%) 100%);
+    /* Enhanced Gradients - Modern Elegant Theme */
+    --gradient-main: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+    --gradient-dark: linear-gradient(135deg, #0a1929 0%, #1e3a5f 100%);
+    --gradient-primary: linear-gradient(135deg, #2c5364 0%, #203a43 100%);
+    --gradient-subtle: linear-gradient(180deg, #203a43 0%, #0f2027 100%);
     
     /* Enhanced Shadows */
-    --shadow-warm: 0 10px 30px -10px hsl(20 55% 52% / 0.3);
-    --shadow-soft: 0 4px 20px -4px hsl(350 48% 10% / 0.1);
-    --shadow-elegant: 0 10px 40px -12px hsl(20 55% 52% / 0.25);
-    --shadow-glow: 0 0 20px hsl(20 55% 52% / 0.3);
+    --shadow-warm: 0 10px 30px -10px hsl(190 60% 50% / 0.3);
+    --shadow-soft: 0 4px 20px -4px hsl(210 25% 12% / 0.1);
+    --shadow-elegant: 0 10px 40px -12px hsl(190 60% 50% / 0.25);
+    --shadow-glow: 0 0 20px hsl(190 60% 50% / 0.3);
 
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    --sidebar-background: 45 55% 85%;
-    --sidebar-foreground: 350 48% 10%;
-    --sidebar-primary: 20 55% 52%;
-    --sidebar-primary-foreground: 45 55% 92%;
-    --sidebar-accent: 350 48% 15%;
-    --sidebar-accent-foreground: 45 55% 92%;
-    --sidebar-border: 45 30% 75%;
-    --sidebar-ring: 20 55% 52%;
+    --sidebar-background: 210 25% 18%;
+    --sidebar-foreground: 210 15% 85%;
+    --sidebar-primary: 190 60% 50%;
+    --sidebar-primary-foreground: 210 15% 95%;
+    --sidebar-accent: 210 25% 22%;
+    --sidebar-accent-foreground: 210 15% 85%;
+    --sidebar-border: 210 25% 22%;
+    --sidebar-ring: 190 60% 50%;
   }
 
   .dark {
@@ -113,12 +113,12 @@
     --sidebar-border: 350 30% 20%;
     --sidebar-ring: 20 55% 52%;
 
-    /* Dark Mode Music Colors - Tapyoca Brand */
-    --music-gradient: linear-gradient(135deg, hsl(350 48% 8%) 0%, hsl(20 55% 52%) 100%);
-    --music-dark: hsl(350 48% 8%);
-    --music-light: hsl(45 55% 90%);
-    --playlist-item: hsl(350 35% 15%);
-    --playlist-item-hover: hsl(350 40% 22%);
+    /* Dark Mode Music Colors - Modern Elegant Theme */
+    --music-gradient: linear-gradient(135deg, #0a1929 0%, #2c5364 100%);
+    --music-dark: #0a1929;
+    --music-light: #e8f1f5;
+    --playlist-item: #1e3a5f;
+    --playlist-item-hover: #2c5364;
   }
 }
 

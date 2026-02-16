@@ -16,13 +16,27 @@ export const BioTab = () => {
       </div>
 
       {/* Main Content - Centered Image, no boxes */}
-      <div className="h-full flex items-center justify-center px-4 pt-20 pb-20">
-        <div className="w-full max-w-md">
-          <img 
-            src="/uploads/de326ed3-9dbc-4546-b937-478483e55b6a.png" 
-            alt="NFC Cards"
-            className="w-full h-auto object-contain rounded-lg shadow-warm"
-          />
+      <div className="h-full flex items-center justify-center px-4 pt-32 pb-20">
+        <div className="w-full max-w-md flex flex-col items-center">
+          {/* Shop text above image */}
+          <p className="text-2xl font-bold text-music-text mb-6">Shop</p>
+          
+          {/* Cards image */}
+          <div className="relative mb-6 p-3 rounded-xl bg-gradient-subtle/20 backdrop-blur-sm w-full">
+            <img 
+              src="/uploads/cards.png" 
+              alt="NFC Cards"
+              className="w-full h-auto object-contain mix-blend-multiply"
+              style={{
+                filter: 'contrast(1.1) saturate(1.2)',
+                mixBlendMode: 'multiply',
+                maxHeight: '280px'
+              }}
+            />
+          </div>
+          
+          {/* $20 text below image */}
+          <p className="text-2xl font-bold text-music-text">$20</p>
         </div>
       </div>
     </div>
