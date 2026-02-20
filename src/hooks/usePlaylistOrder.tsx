@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -162,13 +162,21 @@ export const usePlaylistOrder = () => {
   };
 
   // Apply playlist order to tracks
-  const applyOrderToTracks = <T extends { id: string }>(
+  const applyOrderToTracks = useCallback(<T extends { id: string }>(
     tracks: T[], 
     type: 'audio' | 'video'
   ): T[] => {
     const order = type === 'audio' ? audioOrder : videoOrder;
     
+    console.log(`applyOrderToTracks called for ${type}:`, {
+      totalTracks: tracks.length,
+      orderLength: order.length,
+      trackIds: tracks.map(t => t.id),
+      orderIds: order
+    });
+    
     if (order.length === 0) {
+      console.log('No order found, returning original tracks');
       return tracks; // Return original order if no custom order exists
     }
 
@@ -195,8 +203,13 @@ export const usePlaylistOrder = () => {
       }
     });
 
+    console.log(`applyOrderToTracks result for ${type}:`, {
+      resultLength: orderedTracks.length,
+      resultIds: orderedTracks.map(t => t.id)
+    });
+
     return orderedTracks;
-  };
+  }, [audioOrder, videoOrder]);
 
   // Clear playlist order (reset to default)
   const clearPlaylistOrder = async (type: 'audio' | 'video') => {

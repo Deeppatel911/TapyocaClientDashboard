@@ -73,6 +73,10 @@ export const useSupabaseData = () => {
         .from('artwork')
         .list('', { limit: 100 });
 
+      console.log('Music folders found:', musicFolders);
+      console.log('Video folders found:', videoFolders);
+      console.log('Artwork files found:', artworkFiles);
+
       const processedAudioTracks: AudioTrack[] = [];
       const processedVideoTracks: VideoTrack[] = [];
 
@@ -80,16 +84,22 @@ export const useSupabaseData = () => {
       if (musicFolders) {
         for (const folder of musicFolders) {
           if (folder.name && !folder.name.includes('.emptyFolderPlaceholder')) {
+            console.log(`Processing audio folder: ${folder.name}`);
             // List files in each folder
             const { data: folderFiles } = await supabase.storage
               .from('music-files')
               .list(folder.name, { limit: 100 });
             
+            console.log(`Files in ${folder.name}:`, folderFiles);
+            
             if (folderFiles) {
-              folderFiles
+              const audioFiles = folderFiles
                 .filter(file => file.name && !file.name.includes('.emptyFolderPlaceholder') && 
-                       (file.name.endsWith('.mp3') || file.name.endsWith('.wav') || file.name.endsWith('.m4a')))
-                .forEach((file, index) => {
+                       (file.name.endsWith('.mp3') || file.name.endsWith('.wav') || file.name.endsWith('.m4a')));
+              
+              console.log(`Audio files in ${folder.name}:`, audioFiles);
+              
+              audioFiles.forEach((file, index) => {
                   // Extract artist name from folder name or try to parse from filename
                   let artistName = folder.name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown Artist';
                   
@@ -176,6 +186,9 @@ export const useSupabaseData = () => {
       setVideoTracks(processedVideoTracks);
       setNfcCards(nfcData || []);
       setSocialLinks(socialData || []);
+      
+      console.log('Final processed audio tracks:', processedAudioTracks);
+      console.log('Final processed video tracks:', processedVideoTracks);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {

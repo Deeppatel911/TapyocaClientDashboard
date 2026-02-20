@@ -8,6 +8,7 @@ import { Slider } from '@/components/ui/slider';
 import { useSupabaseData, AudioTrack } from '@/hooks/useSupabaseData';
 import { usePlayerState } from '@/hooks/usePlayerState';
 import { usePlaylistOrder } from '@/hooks/usePlaylistOrder';
+import { useTrackAnalytics } from '@/hooks/useTrackAnalytics';
 import { LyricsDisplay } from './LyricsDisplay';
 import { ShoppingCartIcon } from './ShoppingCartIcon';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
@@ -29,6 +30,7 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
   const { audioTracks, isLoading } = useSupabaseData();
   const playerState = usePlayerState();
   const { savePlaylistOrder, applyOrderToTracks, isLoading: isOrderLoading } = usePlaylistOrder();
+  const { trackEvent, getTrackAnalytics, updateAnalytics, isTracking } = useTrackAnalytics();
   
   const [currentTrack, setCurrentTrack] = useState<AudioTrack | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -54,51 +56,84 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
   
   const audioRef = useRef<H5AudioPlayer>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastPlayTimeRef = useRef<number>(0);
 
   // Initialize ordered tracks from audioTracks with user's custom order
   useEffect(() => {
+    console.log('AudioPlayer useEffect called:', {
+      audioTracksLength: audioTracks.length,
+      isOrderLoading,
+      audioTracksIds: audioTracks.map(t => t.id)
+    });
+    
     if (audioTracks.length > 0 && !isOrderLoading) {
       const orderedTracks = applyOrderToTracks(audioTracks, 'audio');
+      console.log('AudioPlayer setting orderedTracks:', {
+        orderedTracksLength: orderedTracks.length,
+        orderedTracksIds: orderedTracks.map(t => t.id)
+      });
       setOrderedTracks(orderedTracks);
     }
   }, [audioTracks, isOrderLoading, applyOrderToTracks]);
 
   // Restore player state from localStorage on mount
   useEffect(() => {
-    if (orderedTracks.length > 0 && !hasRestoredState && playerState.currentTrack) {
-      // Find the saved track in current tracks
-      const savedTrackIndex = orderedTracks.findIndex(t => t.id === playerState.currentTrack?.id);
-      
-      if (savedTrackIndex !== -1) {
-        const savedTrack = orderedTracks[savedTrackIndex];
-        setCurrentTrack(savedTrack);
-        setCurrentIndex(savedTrackIndex);
-        setVolume([playerState.volume]);
-        setPlaybackSpeed([playerState.playbackSpeed]);
-        setRepeatMode(playerState.repeatMode);
-        setIsShuffling(playerState.isShuffling);
+    console.log('Restore state useEffect called:', {
+      orderedTracksLength: orderedTracks.length,
+      hasRestoredState,
+      playerStateCurrentTrack: playerState.currentTrack?.id,
+      playerStateCurrentTrackExists: !!playerState.currentTrack
+    });
+    
+    if (orderedTracks.length > 0 && !hasRestoredState) {
+      if (playerState.currentTrack) {
+        console.log('Looking for saved track');
+        // Find the saved track in current tracks
+        const savedTrackIndex = orderedTracks.findIndex(t => t.id === playerState.currentTrack?.id);
         
-        // Restore playback position after audio loads
-        const resumeTime = playerState.getResumeTime(savedTrack as any);
-        if (resumeTime > 0) {
-          setTimeout(() => {
-            const audio = audioRef.current?.audio?.current;
-            if (audio) {
-              audio.currentTime = resumeTime;
-              setCurrentTime(resumeTime);
-              toast.info(`Resuming from ${Math.floor(resumeTime / 60)}:${Math.floor(resumeTime % 60).toString().padStart(2, '0')}`);
-            }
-          }, 500);
+        console.log('Looking for saved track:', {
+          savedTrackId: playerState.currentTrack?.id,
+          savedTrackIndex,
+          found: savedTrackIndex !== -1
+        });
+        
+        if (savedTrackIndex !== -1) {
+          const savedTrack = orderedTracks[savedTrackIndex];
+          console.log('Setting saved track:', savedTrack.id);
+          setCurrentTrack(savedTrack);
+          setCurrentIndex(savedTrackIndex);
+          setVolume([playerState.volume]);
+          setPlaybackSpeed([playerState.playbackSpeed]);
+          setRepeatMode(playerState.repeatMode);
+          setIsShuffling(playerState.isShuffling);
+          
+          // Restore playback position after audio loads
+          const resumeTime = playerState.getResumeTime(savedTrack as any);
+          if (resumeTime > 0) {
+            setTimeout(() => {
+              const audio = audioRef.current?.audio?.current;
+              if (audio) {
+                audio.currentTime = resumeTime;
+                setCurrentTime(resumeTime);
+                toast.info(`Resuming from ${Math.floor(resumeTime / 60)}:${Math.floor(resumeTime % 60).toString().padStart(2, '0')}`);
+              }
+            }, 500);
+          }
+        } else {
+          // Saved track not found, set first track as fallback
+          console.log('Saved track not found, setting first track as fallback:', orderedTracks[0].id);
+          setCurrentTrack(orderedTracks[0]);
+          setCurrentIndex(0);
         }
+      } else {
+        // No saved state, set first track
+        console.log('No saved state, setting first track:', orderedTracks[0].id);
+        setCurrentTrack(orderedTracks[0]);
+        setCurrentIndex(0);
       }
       setHasRestoredState(true);
-    } else if (orderedTracks.length > 0 && !hasRestoredState && !playerState.currentTrack) {
-      // No saved state, set first track
-      setCurrentTrack(orderedTracks[0]);
-      setCurrentIndex(0);
-      setHasRestoredState(true);
     }
-  }, [orderedTracks, hasRestoredState, playerState]);
+  }, [orderedTracks, hasRestoredState]);
 
   // Save player state periodically
   useEffect(() => {
@@ -249,6 +284,18 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
   }, []);
 
   const handleTrackSelect = (track: AudioTrack, index: number) => {
+    // Track analytics: track selection
+    if (currentTrack?.id !== track.id) {
+      trackEvent({
+        eventType: 'play',
+        trackId: track.id,
+        trackType: 'audio',
+        currentTime: 0,
+        duration: 0,
+        timestamp: Date.now(),
+      });
+    }
+    
     setCurrentTrack(track);
     setCurrentIndex(index);
     onTrackPlay?.(track, index);
@@ -265,6 +312,18 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
 
   const handleNext = useCallback(() => {
     if (orderedTracks.length === 0) return;
+    
+    // Track analytics: skip current track if not at end
+    if (currentTrack && currentIndex < orderedTracks.length - 1) {
+      trackEvent({
+        eventType: 'skip',
+        trackId: currentTrack.id,
+        trackType: 'audio',
+        currentTime: currentTime,
+        duration: duration,
+        timestamp: Date.now(),
+      });
+    }
     
     const playNextTrack = () => {
       let nextIndex;
@@ -294,10 +353,23 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
     } else {
       playNextTrack();
     }
-  }, [orderedTracks, currentIndex, isShuffling, delayBetweenTracks, onTrackPlay, onPlayStateChange]);
+  }, [orderedTracks, currentIndex, isShuffling, delayBetweenTracks, onTrackPlay, onPlayStateChange, currentTrack, currentTime, duration, trackEvent]);
 
   const handlePrevious = useCallback(() => {
     if (orderedTracks.length === 0) return;
+    
+    // Track analytics: skip current track if not at start
+    if (currentTrack && currentIndex > 0) {
+      trackEvent({
+        eventType: 'skip',
+        trackId: currentTrack.id,
+        trackType: 'audio',
+        currentTime: currentTime,
+        duration: duration,
+        timestamp: Date.now(),
+      });
+    }
+    
     let prevIndex;
     if (isShuffling) {
       prevIndex = Math.floor(Math.random() * orderedTracks.length);
@@ -307,7 +379,7 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
     setCurrentTrack(orderedTracks[prevIndex]);
     setCurrentIndex(prevIndex);
     onTrackPlay?.(orderedTracks[prevIndex], prevIndex);
-    // Auto-play the previous track
+    // Auto-play previous track
     setTimeout(() => {
       const audio = audioRef.current?.audio?.current;
       if (audio) {
@@ -316,9 +388,21 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
         onPlayStateChange?.(true);
       }
     }, 100);
-  }, [orderedTracks, currentIndex, isShuffling, onTrackPlay, onPlayStateChange]);
+  }, [orderedTracks, currentIndex, isShuffling, onTrackPlay, onPlayStateChange, currentTrack, currentTime, duration, trackEvent]);
 
   const handleEnded = () => {
+    if (currentTrack) {
+      // Track analytics: track completion
+      trackEvent({
+        eventType: 'complete',
+        trackId: currentTrack.id,
+        trackType: 'audio',
+        currentTime: duration,
+        duration: duration,
+        timestamp: Date.now(),
+      });
+    }
+    
     if (repeatMode === 'one') {
       audioRef.current?.audio?.current?.play();
     } else if (repeatMode === 'all' || currentIndex < audioTracks.length - 1) {
@@ -328,11 +412,29 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
 
   const togglePlayPause = () => {
     const audio = audioRef.current?.audio?.current;
-    if (audio) {
+    if (audio && currentTrack) {
       if (isPlaying) {
         audio.pause();
+        // Track analytics: pause event
+        trackEvent({
+          eventType: 'pause',
+          trackId: currentTrack.id,
+          trackType: 'audio',
+          currentTime: currentTime,
+          duration: duration,
+          timestamp: Date.now(),
+        });
       } else {
         audio.play();
+        // Track analytics: resume event
+        trackEvent({
+          eventType: 'resume',
+          trackId: currentTrack.id,
+          trackType: 'audio',
+          currentTime: currentTime,
+          duration: duration,
+          timestamp: Date.now(),
+        });
       }
       const newPlayState = !isPlaying;
       setIsPlaying(newPlayState);
@@ -358,10 +460,20 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
 
   const handleSeek = (value: number[]) => {
     const audio = audioRef.current?.audio?.current;
-    if (audio && duration) {
+    if (audio && duration && currentTrack) {
       const newTime = (value[0] / 100) * duration;
       audio.currentTime = newTime;
       setCurrentTime(newTime);
+      
+      // Track analytics: seek event
+      trackEvent({
+        eventType: 'seek',
+        trackId: currentTrack.id,
+        trackType: 'audio',
+        currentTime: newTime,
+        duration: duration,
+        timestamp: Date.now(),
+      });
     }
   };
 

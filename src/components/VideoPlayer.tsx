@@ -9,6 +9,7 @@ import { Slider } from '@/components/ui/slider';
 import { useSupabaseData, VideoTrack } from '@/hooks/useSupabaseData';
 import { usePlayerState } from '@/hooks/usePlayerState';
 import { usePlaylistOrder } from '@/hooks/usePlaylistOrder';
+import { useTrackAnalytics } from '@/hooks/useTrackAnalytics';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { HiOutlineQueueList, HiOutlinePlay, HiOutlinePause, HiOutlineArrowsPointingOut, HiOutlineBackward, HiOutlineForward, HiOutlineSpeakerWave, HiOutlineSpeakerXMark, HiOutlineBars3 } from 'react-icons/hi2';
 import { formatTitle } from '@/lib/utils';
@@ -24,6 +25,7 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
   const { videoTracks, isLoading } = useSupabaseData();
   const playerState = usePlayerState();
   const { savePlaylistOrder, applyOrderToTracks, isLoading: isOrderLoading } = usePlaylistOrder();
+  const { trackEvent } = useTrackAnalytics();
   
   const [currentVideo, setCurrentVideo] = useState<VideoTrack | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -166,6 +168,18 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
     const handleSearchSelection = (event: CustomEvent) => {
       const { track, type, index } = event.detail;
       if (type === 'video') {
+        // Track analytics: video selection from search
+        if (currentVideo?.id !== track.id) {
+          trackEvent({
+            eventType: 'play',
+            trackId: track.id,
+            trackType: 'video',
+            currentTime: 0,
+            duration: 0,
+            timestamp: Date.now(),
+          });
+        }
+        
         setCurrentVideo(track);
         setCurrentIndex(index || 0);
         setTimeout(() => {
@@ -184,6 +198,18 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
   }, []);
 
   const handleVideoSelect = (video: VideoTrack, index: number) => {
+    // Track analytics: video selection
+    if (currentVideo?.id !== video.id) {
+      trackEvent({
+        eventType: 'play',
+        trackId: video.id,
+        trackType: 'video',
+        currentTime: 0,
+        duration: 0,
+        timestamp: Date.now(),
+      });
+    }
+    
     setCurrentVideo(video);
     setCurrentIndex(index);
     onTrackPlay?.(video, index);
@@ -198,6 +224,19 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
 
   const handleNext = () => {
     if (orderedVideos.length === 0) return;
+    
+    // Track analytics: skip current video if not at end
+    if (currentVideo && currentIndex < orderedVideos.length - 1) {
+      trackEvent({
+        eventType: 'skip',
+        trackId: currentVideo.id,
+        trackType: 'video',
+        currentTime: currentTime,
+        duration: duration,
+        timestamp: Date.now(),
+      });
+    }
+    
     const nextIndex = (currentIndex + 1) % orderedVideos.length;
     setCurrentVideo(orderedVideos[nextIndex]);
     setCurrentIndex(nextIndex);
@@ -212,6 +251,19 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
 
   const handlePrevious = () => {
     if (orderedVideos.length === 0) return;
+    
+    // Track analytics: skip current video if not at start
+    if (currentVideo && currentIndex > 0) {
+      trackEvent({
+        eventType: 'skip',
+        trackId: currentVideo.id,
+        trackType: 'video',
+        currentTime: currentTime,
+        duration: duration,
+        timestamp: Date.now(),
+      });
+    }
+    
     const prevIndex = currentIndex === 0 ? orderedVideos.length - 1 : currentIndex - 1;
     setCurrentVideo(orderedVideos[prevIndex]);
     setCurrentIndex(prevIndex);
@@ -295,6 +347,18 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
     const newTime = (value[0] / 100) * duration;
     video.currentTime = newTime;
     setCurrentTime(newTime);
+    
+    // Track analytics: seek event
+    if (currentVideo) {
+      trackEvent({
+        eventType: 'seek',
+        trackId: currentVideo.id,
+        trackType: 'video',
+        currentTime: newTime,
+        duration: duration,
+        timestamp: Date.now(),
+      });
+    }
   };
 
   const handleVolumeChange = (value: number[]) => {
@@ -364,10 +428,32 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
               onPlay={() => {
                 setIsPlaying(true);
                 onPlayStateChange?.(true);
+                // Track analytics: resume event
+                if (currentVideo) {
+                  trackEvent({
+                    eventType: 'resume',
+                    trackId: currentVideo.id,
+                    trackType: 'video',
+                    currentTime: currentTime,
+                    duration: duration,
+                    timestamp: Date.now(),
+                  });
+                }
               }}
               onPause={() => {
                 setIsPlaying(false);
                 onPlayStateChange?.(false);
+                // Track analytics: pause event
+                if (currentVideo) {
+                  trackEvent({
+                    eventType: 'pause',
+                    trackId: currentVideo.id,
+                    trackType: 'video',
+                    currentTime: currentTime,
+                    duration: duration,
+                    timestamp: Date.now(),
+                  });
+                }
               }}
               onTimeUpdate={() => {
                 const video = playerRef.current?.video?.video;
@@ -376,6 +462,21 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
                   setDuration(video.duration || 0);
                   onTimeUpdate?.(video.currentTime, video.duration);
                 }
+              }}
+              onEnded={() => {
+                // Track analytics: video completion
+                if (currentVideo) {
+                  trackEvent({
+                    eventType: 'complete',
+                    trackId: currentVideo.id,
+                    trackType: 'video',
+                    currentTime: duration,
+                    duration: duration,
+                    timestamp: Date.now(),
+                  });
+                }
+                // Auto-play next video
+                handleNext();
               }}
             />
 
