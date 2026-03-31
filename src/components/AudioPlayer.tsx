@@ -222,42 +222,6 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
     };
   }, [countdownTime > 0, isPlaying]);
 
-  // Listen for mini-player events
-  useEffect(() => {
-    const handleMiniPlayerPlayPause = () => {
-      togglePlayPause();
-    };
-
-    const handleMiniPlayerNext = () => {
-      handleNext();
-    };
-
-    const handleMiniPlayerPrevious = () => {
-      handlePrevious();
-    };
-
-    const handleMiniPlayerSeek = (event: CustomEvent) => {
-      const newTime = event.detail;
-      const audio = audioRef.current?.audio?.current;
-      if (audio) {
-        audio.currentTime = newTime;
-        setCurrentTime(newTime);
-      }
-    };
-
-    window.addEventListener('miniPlayerPlayPause', handleMiniPlayerPlayPause);
-    window.addEventListener('miniPlayerNext', handleMiniPlayerNext);
-    window.addEventListener('miniPlayerPrevious', handleMiniPlayerPrevious);
-    window.addEventListener('miniPlayerSeek', handleMiniPlayerSeek as EventListener);
-
-    return () => {
-      window.removeEventListener('miniPlayerPlayPause', handleMiniPlayerPlayPause);
-      window.removeEventListener('miniPlayerNext', handleMiniPlayerNext);
-      window.removeEventListener('miniPlayerPrevious', handleMiniPlayerPrevious);
-      window.removeEventListener('miniPlayerSeek', handleMiniPlayerSeek as EventListener);
-    };
-  }, []);
-
   // Listen for search selections
   useEffect(() => {
     const handleSearchSelection = (event: CustomEvent) => {

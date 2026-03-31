@@ -69,13 +69,16 @@ export const useTrackAnalytics = (): UseTrackAnalyticsReturn => {
         const [trackId, trackType] = trackKey.split('_');
         
         // Get current analytics - now that track_id is TEXT type
-        const { data: currentAnalytics, error: fetchError } = await supabase
+        // @ts-ignore - Type instantiation depth issue
+        const result: any = await supabase
           .from('track_analytics')
           .select('*')
-          .eq('track_id', trackId)
-          .eq('track_type', trackType)
           .eq('user_id', user.id)
-          .maybeSingle();
+          .eq('track_id', trackId)
+          .single();
+        
+        const currentAnalytics = result.data;
+        const fetchError = result.error;
 
         if (fetchError && fetchError.code !== 'PGRST116') {
           console.error('Error fetching analytics:', fetchError);
@@ -218,13 +221,17 @@ export const useTrackAnalytics = (): UseTrackAnalyticsReturn => {
     if (!user) return null;
 
     try {
-      const { data, error } = await supabase
+      // @ts-ignore - Type instantiation depth issue
+      const result: any = await supabase
         .from('track_analytics')
         .select('play_count, skip_count, avg_listen_duration, completion_rate, total_listen_time, last_played_at')
         .eq('track_id', trackId)
         .eq('track_type', trackType)
         .eq('user_id', user.id)
         .maybeSingle();
+      
+      const data = result.data;
+      const error = result.error;
 
       if (error) {
         // Handle case where record doesn't exist

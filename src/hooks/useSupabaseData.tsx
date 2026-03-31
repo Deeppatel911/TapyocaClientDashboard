@@ -3,6 +3,54 @@ import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeSubscription } from './useRealtimeSubscription';
 import { useAdvancedAudioMetadata } from './useAdvancedAudioMetadata';
 
+// Function to save tracks to database
+const saveTracksToDatabase = async (audioTracks: AudioTrack[], videoTracks: VideoTrack[]) => {
+  try {
+    console.log('Saving tracks to database...');
+    
+    // Save audio tracks
+    for (const track of audioTracks) {
+      const { error } = await supabase
+        .from('audio_tracks')
+        .upsert({
+          id: track.id,
+          artist_id: track.artist_id,
+          title: track.title,
+          audio_url: track.audio_url,
+          cover_image_url: track.cover_image_url,
+          duration: track.duration,
+          has_shopping_cart: track.has_shopping_cart
+        }, { onConflict: 'id' });
+      
+      if (error) {
+        console.error('Error saving audio track:', error);
+      }
+    }
+    
+    // Save video tracks
+    for (const track of videoTracks) {
+      const { error } = await supabase
+        .from('video_tracks')
+        .upsert({
+          id: track.id,
+          artist_id: track.artist_id,
+          title: track.title,
+          video_url: track.video_url,
+          thumbnail_url: track.thumbnail_url,
+          duration: track.duration
+        }, { onConflict: 'id' });
+      
+      if (error) {
+        console.error('Error saving video track:', error);
+      }
+    }
+    
+    console.log('Tracks saved to database successfully');
+  } catch (error) {
+    console.error('Error saving tracks to database:', error);
+  }
+};
+
 export interface Artist {
   id: string;
   name: string;
@@ -102,20 +150,25 @@ export const useSupabaseData = () => {
               audioFiles.forEach((file, index) => {
                   // Extract artist name from folder name or try to parse from filename
                   let artistName = folder.name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown Artist';
+                  let trackTitle = file.name.replace(/\.[^/.]+$/, '');
                   
-                  // Try to extract better artist name from filename format "Artist - Title"
-                  const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-                  if (fileNameWithoutExt.includes(' - ')) {
-                    const parts = fileNameWithoutExt.split(' - ');
+                  // Try to extract better artist name and track title from filename format "Artist - Title"
+                  if (trackTitle.includes(' - ')) {
+                    const parts = trackTitle.split(' - ');
                     if (parts.length >= 2) {
                       artistName = parts[0].trim();
+                      trackTitle = parts[1].trim();
                     }
                   }
                   
+                  // Create proper ID using track title instead of index
+                  const cleanTrackTitle = trackTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+                  const trackId = `audio-${folder.name}-${cleanTrackTitle}`;
+                  
                   processedAudioTracks.push({
-                    id: `audio-${folder.name}-${index}`,
+                    id: trackId,
                     artist_id: folder.name,
-                    title: fileNameWithoutExt,
+                    title: trackTitle,
                     audio_url: supabase.storage.from('music-files').getPublicUrl(`${folder.name}/${file.name}`).data.publicUrl,
                     cover_image_url: artworkFiles?.[0] ? 
                       supabase.storage.from('artwork').getPublicUrl(artworkFiles[0].name).data.publicUrl : 
@@ -143,23 +196,28 @@ export const useSupabaseData = () => {
               folderFiles
                 .filter(file => file.name && !file.name.includes('.emptyFolderPlaceholder') && 
                        (file.name.endsWith('.mp4') || file.name.endsWith('.mov') || file.name.endsWith('.avi')))
-                .forEach((file, index) => {
+                .forEach((file) => {
                   // Extract artist name from folder name or try to parse from filename
                   let artistName = folder.name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown Artist';
+                  let trackTitle = file.name.replace(/\.[^/.]+$/, '');
                   
-                  // Try to extract better artist name from filename format "Artist - Title"
-                  const fileNameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-                  if (fileNameWithoutExt.includes(' - ')) {
-                    const parts = fileNameWithoutExt.split(' - ');
+                  // Try to extract better artist name and track title from filename format "Artist - Title"
+                  if (trackTitle.includes(' - ')) {
+                    const parts = trackTitle.split(' - ');
                     if (parts.length >= 2) {
                       artistName = parts[0].trim();
+                      trackTitle = parts[1].trim();
                     }
                   }
                   
+                  // Create proper ID using track title instead of index
+                  const cleanTrackTitle = trackTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
+                  const trackId = `video-${folder.name}-${cleanTrackTitle}`;
+                  
                   processedVideoTracks.push({
-                    id: `video-${folder.name}-${index}`,
+                    id: trackId,
                     artist_id: folder.name,
-                    title: fileNameWithoutExt,
+                    title: trackTitle,
                     video_url: supabase.storage.from('video-files').getPublicUrl(`${folder.name}/${file.name}`).data.publicUrl,
                     thumbnail_url: artworkFiles?.[1] ? 
                       supabase.storage.from('artwork').getPublicUrl(artworkFiles[1].name).data.publicUrl : 
@@ -177,6 +235,9 @@ export const useSupabaseData = () => {
       const { data: nfcData } = await supabase
         .from('nfc_cards')
         .select('*');
+
+      // Save processed tracks to database if they don't exist
+      await saveTracksToDatabase(processedAudioTracks, processedVideoTracks);
 
       const { data: socialData } = await supabase
         .from('social_links')

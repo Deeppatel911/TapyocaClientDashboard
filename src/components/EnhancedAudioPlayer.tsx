@@ -108,15 +108,6 @@ export const EnhancedAudioPlayer = ({
 
   // Listen for external events
   useEffect(() => {
-    const handleMiniPlayerPlayPause = () => togglePlayPause();
-    const handleMiniPlayerNext = () => handleNext();
-    const handleMiniPlayerPrevious = () => handlePrevious();
-    const handleMiniPlayerSeek = (event: CustomEvent) => {
-      const newTime = event.detail;
-      seek(newTime);
-      playerState.setCurrentTime(newTime);
-    };
-
     const handleSearchSelection = (event: CustomEvent) => {
       const { track, type } = event.detail;
       if (type === 'audio') {
@@ -125,17 +116,9 @@ export const EnhancedAudioPlayer = ({
       }
     };
 
-    window.addEventListener('miniPlayerPlayPause', handleMiniPlayerPlayPause);
-    window.addEventListener('miniPlayerNext', handleMiniPlayerNext);
-    window.addEventListener('miniPlayerPrevious', handleMiniPlayerPrevious);
-    window.addEventListener('miniPlayerSeek', handleMiniPlayerSeek as EventListener);
     window.addEventListener('searchTrackSelected', handleSearchSelection as EventListener);
 
     return () => {
-      window.removeEventListener('miniPlayerPlayPause', handleMiniPlayerPlayPause);
-      window.removeEventListener('miniPlayerNext', handleMiniPlayerNext);
-      window.removeEventListener('miniPlayerPrevious', handleMiniPlayerPrevious);
-      window.removeEventListener('miniPlayerSeek', handleMiniPlayerSeek as EventListener);
       window.removeEventListener('searchTrackSelected', handleSearchSelection as EventListener);
     };
   }, []);

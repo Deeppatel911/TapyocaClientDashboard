@@ -121,48 +121,6 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
     }
   }, [currentVideo, currentIndex, currentTime, duration, isPlaying, volume, playbackSpeed]);
 
-  // Listen for mini-player events
-  useEffect(() => {
-    const handleMiniPlayerPlayPause = () => {
-      const video = playerRef.current?.video?.video;
-      if (video) {
-        if (video.paused) {
-          video.play();
-        } else {
-          video.pause();
-        }
-      }
-    };
-
-    const handleMiniPlayerNext = () => {
-      handleNext();
-    };
-
-    const handleMiniPlayerPrevious = () => {
-      handlePrevious();
-    };
-
-    const handleMiniPlayerSeek = (event: CustomEvent) => {
-      const newTime = event.detail;
-      const video = playerRef.current?.video?.video;
-      if (video) {
-        video.currentTime = newTime;
-      }
-    };
-
-    window.addEventListener('miniPlayerPlayPause', handleMiniPlayerPlayPause);
-    window.addEventListener('miniPlayerNext', handleMiniPlayerNext);
-    window.addEventListener('miniPlayerPrevious', handleMiniPlayerPrevious);
-    window.addEventListener('miniPlayerSeek', handleMiniPlayerSeek as EventListener);
-
-    return () => {
-      window.removeEventListener('miniPlayerPlayPause', handleMiniPlayerPlayPause);
-      window.removeEventListener('miniPlayerNext', handleMiniPlayerNext);
-      window.removeEventListener('miniPlayerPrevious', handleMiniPlayerPrevious);
-      window.removeEventListener('miniPlayerSeek', handleMiniPlayerSeek as EventListener);
-    };
-  }, []);
-
   // Listen for search selections (auto-play)
   useEffect(() => {
     const handleSearchSelection = (event: CustomEvent) => {
