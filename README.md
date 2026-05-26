@@ -29,6 +29,13 @@
   - Enhanced UI/UX with floating mini player, drag-and-drop playlist reordering, lyrics, and sleep timers.
   - Mocked music/video data enables demo use without backend complexity.
 
+- **Analytics Dashboard:**
+  - Comprehensive analytics with overview metrics (total plays, listening time, favorite tracks).
+  - Interactive charts including bar charts for top tracks, line charts for listening timeline, and pie charts for completion rates.
+  - Filter views by audio/video/all media types.
+  - Top lists and detailed table views for in-depth engagement analysis.
+  - Real-time session synchronization and playback tracking.
+
 - **NFC Access:**
   - NFC access simulation included for demonstration/feature gating.
 
@@ -71,26 +78,30 @@
 ## Screenshots
 | **Audio Player & Playlist** 
 |:---:|:---:|
-| ![Audio Player](docs/images/a1.png) | ![Audio Playlist](docs/images/a2.png) |
+| ![Audio Player](docs/images/tp-s1.png) | ![Audio Playlist](docs/images/tp-s2.png) |
 
 | **Video Player & Playlist**
 |:---:|:---:|
-| ![Video Player](docs/images/v1.png) | ![Video Playlist](docs/images/v2.png) |
+| ![Video Player](docs/images/tp-s3.png) |
 
 | **Bio** 
 |:---:|:---:| 
-| ![Bio](docs/images/b1.png) |
+| ![Bio](docs/images/tp-s4.png) |
 
 | **Links** 
 |:---:|:---:| 
-| ![Link](docs/images/l1.png) |
+| ![Link](docs/images/tp-s5.png) |
+
+| **Analytics Dashboard**
+|:---:|:---:|
+| ![Analytics Overview](docs/images/tp-s8.png) | ![Analytics Charts](docs/images/tp-s9.png) | ![Analytics Top Lists - Most Played tracks](docs/images/tp-s10.png) | ![Analytics TOp Lists - Most Skipped Tracks](docs/images/tp-s11.png) |
 
 | **Rewards & Achievements** 
 |:---:|:---:| 
-| ![Rewards](docs/images/r1.png) | ![Achievements](docs/images/r2.png) |
+| ![Rewards](docs/images/tp-s6.png) | ![Achievements](docs/images/tp-s7.png) |
 
 |**Search Functionality**
 |:---:|:---:|
-| ![Search](docs/images/s1.png) | ![Live Filtering](docs/images/s2.png) |
+| ![Search](docs/images/tp-s12.png) |
 
 ---
