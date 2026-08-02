@@ -233,6 +233,38 @@ export type Database = {
         }
         Relationships: []
       }
+      artist_links: {
+        Row: {
+          artist_id: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          url: string
+        }
+        Insert: {
+          artist_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          url: string
+        }
+        Update: {
+          artist_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_links_artist_id_fkey"
+            columns: ["artist_id"]
+            isOneToOne: false
+            referencedRelation: "artists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audio_tracks: {
         Row: {
           artist_id: string
@@ -1041,8 +1073,11 @@ export type Database = {
           play_count: number | null
           skip_count: number | null
           title: string
+          total_listen_time: number | null
           track_id: string
+          track_type: string
           updated_at: string
+          user_id: string
         }
         Insert: {
           album_id?: string | null
@@ -1054,8 +1089,11 @@ export type Database = {
           play_count?: number | null
           skip_count?: number | null
           title: string
+          total_listen_time?: number | null
           track_id: string
+          track_type: string
           updated_at?: string
+          user_id: string
         }
         Update: {
           album_id?: string | null
@@ -1067,8 +1105,11 @@ export type Database = {
           play_count?: number | null
           skip_count?: number | null
           title?: string
+          total_listen_time?: number | null
           track_id?: string
+          track_type?: string
           updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

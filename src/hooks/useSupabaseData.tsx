@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useRealtimeSubscription } from './useRealtimeSubscription';
 import { useAdvancedAudioMetadata } from './useAdvancedAudioMetadata';
+import { deriveArtistAndTitle, buildTrackId } from '@/lib/trackNaming';
 
 // Function to save tracks to database
 const saveTracksToDatabase = async (audioTracks: AudioTrack[], videoTracks: VideoTrack[]) => {
@@ -147,24 +148,12 @@ export const useSupabaseData = () => {
               
               console.log(`Audio files in ${folder.name}:`, audioFiles);
               
-              audioFiles.forEach((file, index) => {
-                  // Extract artist name from folder name or try to parse from filename
-                  let artistName = folder.name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown Artist';
-                  let trackTitle = file.name.replace(/\.[^/.]+$/, '');
-                  
-                  // Try to extract better artist name and track title from filename format "Artist - Title"
-                  if (trackTitle.includes(' - ')) {
-                    const parts = trackTitle.split(' - ');
-                    if (parts.length >= 2) {
-                      artistName = parts[0].trim();
-                      trackTitle = parts[1].trim();
-                    }
-                  }
-                  
-                  // Create proper ID using track title instead of index
-                  const cleanTrackTitle = trackTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
-                  const trackId = `audio-${folder.name}-${cleanTrackTitle}`;
-                  
+              audioFiles.forEach((file) => {
+                  // Derive display artist/title and the stable track_id slug
+                  // (shared logic so analytics resolves the same names — see lib/trackNaming).
+                  const { artist: artistName, title: trackTitle } = deriveArtistAndTitle(folder.name, file.name);
+                  const trackId = buildTrackId('audio', folder.name, trackTitle);
+
                   processedAudioTracks.push({
                     id: trackId,
                     artist_id: folder.name,
@@ -197,23 +186,11 @@ export const useSupabaseData = () => {
                 .filter(file => file.name && !file.name.includes('.emptyFolderPlaceholder') && 
                        (file.name.endsWith('.mp4') || file.name.endsWith('.mov') || file.name.endsWith('.avi')))
                 .forEach((file) => {
-                  // Extract artist name from folder name or try to parse from filename
-                  let artistName = folder.name.replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) || 'Unknown Artist';
-                  let trackTitle = file.name.replace(/\.[^/.]+$/, '');
-                  
-                  // Try to extract better artist name and track title from filename format "Artist - Title"
-                  if (trackTitle.includes(' - ')) {
-                    const parts = trackTitle.split(' - ');
-                    if (parts.length >= 2) {
-                      artistName = parts[0].trim();
-                      trackTitle = parts[1].trim();
-                    }
-                  }
-                  
-                  // Create proper ID using track title instead of index
-                  const cleanTrackTitle = trackTitle.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
-                  const trackId = `video-${folder.name}-${cleanTrackTitle}`;
-                  
+                  // Derive display artist/title and the stable track_id slug
+                  // (shared logic so analytics resolves the same names — see lib/trackNaming).
+                  const { artist: artistName, title: trackTitle } = deriveArtistAndTitle(folder.name, file.name);
+                  const trackId = buildTrackId('video', folder.name, trackTitle);
+
                   processedVideoTracks.push({
                     id: trackId,
                     artist_id: folder.name,

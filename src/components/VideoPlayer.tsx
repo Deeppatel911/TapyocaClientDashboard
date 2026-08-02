@@ -13,6 +13,7 @@ import { useTrackAnalytics } from '@/hooks/useTrackAnalytics';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { HiOutlineQueueList, HiOutlinePlay, HiOutlinePause, HiOutlineArrowsPointingOut, HiOutlineBackward, HiOutlineForward, HiOutlineSpeakerWave, HiOutlineSpeakerXMark, HiOutlineBars3 } from 'react-icons/hi2';
 import { formatTitle } from '@/lib/utils';
+import { RecommendationShelf } from './RecommendationShelf';
 import { toast } from 'sonner';
 
 interface VideoPlayerProps {
@@ -355,12 +356,12 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
   }
 
   return (
-    <div className="h-screen bg-transparent relative overflow-hidden">
-      
+    <div className="min-h-screen bg-transparent relative">
+
       {/* Main Content - Account for bottom navigation */}
-      <div className="pt-8 pb-28 px-4 h-full flex flex-col">
+      <div className="pt-8 pb-28 px-4 flex flex-col">
         {/* Video Player */}
-        <div className="flex-1 flex items-center justify-center mb-4">
+        <div className="shrink-0 flex items-center justify-center mb-4">
           <div
             ref={containerRef}
             className="w-full max-w-lg bg-black rounded-lg shadow-warm overflow-hidden relative"
@@ -571,8 +572,18 @@ export const VideoPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Vi
           <p className="text-music-text/70 text-sm">{currentVideo.artist?.name || 'Unknown Artist'}</p>
         </div>
 
+        {/* Recommended for you */}
+        <RecommendationShelf
+          tracks={orderedVideos}
+          currentTrackId={currentVideo?.id}
+          onSelect={(trackId) => {
+            const idx = orderedVideos.findIndex((v) => v.id === trackId);
+            if (idx >= 0) handleVideoSelect(orderedVideos[idx], idx);
+          }}
+        />
+
         {/* Playlist Section */}
-        <Card className="w-full max-w-lg">
+        <Card className="w-full max-w-lg mt-4">
           <div className="p-3 border-b">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium">Playlist</h3>

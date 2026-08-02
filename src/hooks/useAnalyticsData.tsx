@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth';
 import { supabase } from '@/integrations/supabase/client';
-import { AudioTrack, VideoTrack } from './useSupabaseData';
+import { useTrackDirectory, TrackDirectoryEntry } from './useTrackDirectory';
+import { prettifyTrackId } from '@/lib/trackNaming';
 
 export interface AnalyticsData {
   totalPlays: number;
@@ -69,12 +70,21 @@ export const useAnalyticsData = () => {
   const [data, setData] = useState<AnalyticsData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { user } = useAuth();
+  // Clean display names (artist/title) are resolved from storage, keyed by the
+  // stable track_id slug. The audio_tracks/video_tracks DB tables can't be used
+  // for this: they're keyed by uuid (not the text slug) and are currently empty.
+  const { directory, isLoading: isDirectoryLoading } = useTrackDirectory();
 
   useEffect(() => {
     if (!user) {
       setIsLoading(false);
+      return;
+    }
+
+    // Wait for the storage directory so we can resolve names in one pass.
+    if (isDirectoryLoading) {
       return;
     }
 
@@ -83,59 +93,22 @@ export const useAnalyticsData = () => {
         setIsLoading(true);
         setError(null);
 
-        // Fetch all analytics data for the user
-        // @ts-ignore - Type instantiation depth issue
-        const { data: analyticsData, error: fetchError } = await supabase
-          .from('track_analytics')
-          .select('*')
+        // Source of truth: the raw playback event stream. All dashboard metrics
+        // are derived from these append-only rows (see useTrackAnalytics).
+        const { data: events, error: fetchError } = await supabase
+          .from('analytics_events')
+          .select('event_type, metadata, created_at')
           .eq('user_id', user.id)
-          .order('last_played_at', { ascending: false });
+          .like('event_type', 'track_%')
+          .order('created_at', { ascending: false });
 
         if (fetchError) throw fetchError;
 
-        // Fetch track information with full details
-        console.log('Fetching audio tracks...');
-        // @ts-ignore - Type instantiation depth issue
-        const { data: audioTracks, error: audioError } = await supabase
-          .from('audio_tracks')
-          .select('id, title, artist_id, duration');
-        
-        console.log('Fetching video tracks...');
-        // @ts-ignore - Type instantiation depth issue
-        const { data: videoTracks, error: videoError } = await supabase
-          .from('video_tracks')
-          .select('id, title, artist_id, duration');
+        console.log('Analytics events fetched:', events?.length || 0, 'rows');
+        console.log('Track directory entries:', directory.size);
 
-        console.log('Audio tracks error:', audioError);
-        console.log('Video tracks error:', videoError);
-
-        // Fetch artist information
-        // @ts-ignore - Type instantiation depth issue
-        const { data: artists } = await supabase
-          .from('artists')
-          .select('id, name');
-
-        // Combine all data
-        const allTracks = [
-          ...(audioTracks || []).map(track => ({ ...track, trackType: 'audio' as const })),
-          ...(videoTracks || []).map(track => ({ ...track, trackType: 'video' as const }))
-        ];
-
-        const artistMap = (artists || []).reduce((acc, artist) => {
-          acc[artist.id] = artist.name;
-          return acc;
-        }, {} as Record<string, string>);
-
-        // Debug logging
-        console.log('Analytics data fetched:', analyticsData?.length || 0, 'records');
-        console.log('Audio tracks:', audioTracks?.length || 0, 'records');
-        console.log('Video tracks:', videoTracks?.length || 0, 'records');
-        console.log('Artists:', artists?.length || 0, 'records');
-
-        // Process analytics data
-        const processedData = processAnalyticsData(analyticsData || [], allTracks, artistMap);
+        const processedData = processEvents(events || [], directory);
         setData(processedData);
-
       } catch (err) {
         console.error('Error fetching analytics data:', err);
         setError(err instanceof Error ? err.message : 'Failed to fetch analytics data');
@@ -145,176 +118,207 @@ export const useAnalyticsData = () => {
     };
 
     fetchAnalyticsData();
-  }, [user, supabase]);
+  }, [user, directory, isDirectoryLoading]);
 
   return { data, isLoading, error };
 };
 
-const processAnalyticsData = (
-  analyticsData: any[],
-  allTracks: Array<{ id: string; title: string; artist_id: string; trackType: 'audio' | 'video' }>,
-  artistMap: Record<string, string>
+// Per-track aggregate accumulated from the raw event stream.
+interface TrackAgg {
+  trackId: string;
+  trackType: 'audio' | 'video';
+  playCount: number;
+  skipCount: number;
+  completeCount: number;
+  totalListenTime: number;
+  lastPlayedAt: string | null;
+}
+
+const processEvents = (
+  events: any[],
+  directory: Map<string, TrackDirectoryEntry>
 ): AnalyticsData => {
-  console.log('Processing analytics data:', analyticsData.length, 'records');
-  console.log('Available tracks:', allTracks.length, 'records');
-  
-  // Create track map for easier lookup
-  const trackMap = allTracks.reduce((acc, track) => {
-    acc[track.id] = track;
-    return acc;
-  }, {} as Record<string, any>);
-  
-  // Log sample data for debugging
-  if (analyticsData.length > 0) {
-    console.log('Sample analytics record:', analyticsData[0]);
-    console.log('Sample track lookup:', trackMap[analyticsData[0].track_id]);
-  }
-  // Calculate total metrics
-  const totalPlays = analyticsData.reduce((sum, item) => sum + (item.play_count || 0), 0);
-  const totalListeningTime = analyticsData.reduce((sum, item) => sum + (item.total_listen_time || 0), 0);
-
-  // Find favorite track (most played)
-  const favoriteTrackData = analyticsData.reduce((favorite, item) => {
-    if (!favorite || (item.play_count || 0) > (favorite.play_count || 0)) {
-      return item;
+  // Resolve a clean { title, artist } for a track_id: prefer the storage
+  // directory; fall back to a prettified slug if the track no longer exists.
+  const resolveName = (trackId: string): { title: string; artist: string } => {
+    const entry = directory.get(trackId);
+    if (entry) {
+      return { title: entry.title, artist: entry.artist };
     }
-    return favorite;
-  }, null as any);
+    return prettifyTrackId(trackId);
+  };
 
-  const favoriteTrack = favoriteTrackData ? {
-    id: favoriteTrackData.track_id,
-    title: trackMap[favoriteTrackData.track_id]?.title || favoriteTrackData.title || 'Unknown Track',
-    artist: artistMap[trackMap[favoriteTrackData.track_id]?.artist_id] || 'Unknown Artist',
-    playCount: favoriteTrackData.play_count || 0,
-    trackType: favoriteTrackData.track_type
-  } : null;
+  const trackMap = new Map<string, TrackAgg>();
+  const timelineMap = new Map<string, { plays: number; listeningTime: number }>();
 
-  // Play counts by track
-  const playCountsByTrack = analyticsData.map(item => ({
-    trackId: item.track_id,
-    title: trackMap[item.track_id]?.title || item.title || 'Unknown Track',
-    artist: artistMap[trackMap[item.track_id]?.artist_id] || 'Unknown Artist',
-    playCount: item.play_count || 0,
-    trackType: item.track_type || 'audio'
-  })).sort((a, b) => b.playCount - a.playCount);
-
-  // Listening timeline (last 30 days)
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-  
-  const timelineData = analyticsData
-    .filter(item => item.last_played_at && new Date(item.last_played_at) >= thirtyDaysAgo)
-    .reduce((acc, item) => {
-      const date = new Date(item.last_played_at!).toISOString().split('T')[0];
-      const existing = acc.find(d => d.date === date);
-      
-      if (existing) {
-        existing.plays += item.play_count || 0;
-        existing.listeningTime += item.total_listen_time || 0;
-      } else {
-        acc.push({
-          date,
-          plays: item.play_count || 0,
-          listeningTime: item.total_listen_time || 0
-        });
+
+  for (const ev of events) {
+    const meta = ev.metadata || {};
+    const trackId: string | undefined = meta.track_id;
+    if (!trackId) continue;
+
+    const trackType: 'audio' | 'video' = meta.track_type === 'video' ? 'video' : 'audio';
+    const listened = Number(meta.listened_delta) || 0;
+
+    let agg = trackMap.get(trackId);
+    if (!agg) {
+      agg = {
+        trackId,
+        trackType,
+        playCount: 0,
+        skipCount: 0,
+        completeCount: 0,
+        totalListenTime: 0,
+        lastPlayedAt: null,
+      };
+      trackMap.set(trackId, agg);
+    }
+
+    agg.totalListenTime += listened;
+
+    if (ev.event_type === 'track_play') {
+      agg.playCount++;
+      // events are ordered created_at desc, so the first play seen is the latest
+      if (!agg.lastPlayedAt) agg.lastPlayedAt = ev.created_at;
+    } else if (ev.event_type === 'track_skip') {
+      agg.skipCount++;
+    } else if (ev.event_type === 'track_complete') {
+      agg.completeCount++;
+    }
+
+    // Timeline: bucket plays + listen time by actual event date (last 30 days).
+    const created = new Date(ev.created_at);
+    if (created >= thirtyDaysAgo) {
+      const date = created.toISOString().split('T')[0];
+      let bucket = timelineMap.get(date);
+      if (!bucket) {
+        bucket = { plays: 0, listeningTime: 0 };
+        timelineMap.set(date, bucket);
       }
-      return acc;
-    }, [] as Array<{ date: string; plays: number; listeningTime: number }>)
+      if (ev.event_type === 'track_play') bucket.plays++;
+      bucket.listeningTime += listened;
+    }
+  }
+
+  const tracks = Array.from(trackMap.values());
+
+  // Totals
+  const totalPlays = tracks.reduce((sum, t) => sum + t.playCount, 0);
+  const totalListeningTime = tracks.reduce((sum, t) => sum + t.totalListenTime, 0);
+  const totalCompleted = tracks.reduce((sum, t) => sum + t.completeCount, 0);
+
+  // Play counts by track
+  const playCountsByTrack = tracks
+    .map((t) => ({
+      trackId: t.trackId,
+      ...resolveName(t.trackId),
+      playCount: t.playCount,
+      trackType: t.trackType,
+    }))
+    .sort((a, b) => b.playCount - a.playCount);
+
+  // Favorite track (most played)
+  const favAgg = tracks.reduce<TrackAgg | null>(
+    (fav, t) => (!fav || t.playCount > fav.playCount ? t : fav),
+    null
+  );
+  const favoriteTrack =
+    favAgg && favAgg.playCount > 0
+      ? {
+          id: favAgg.trackId,
+          ...resolveName(favAgg.trackId),
+          playCount: favAgg.playCount,
+          trackType: favAgg.trackType,
+        }
+      : null;
+
+  // Listening timeline (last 30 days), chronological
+  const listeningTimeline = Array.from(timelineMap.entries())
+    .map(([date, v]) => ({ date, plays: v.plays, listeningTime: v.listeningTime }))
     .sort((a, b) => a.date.localeCompare(b.date));
 
-  // Completion rates
-  const totalCompleted = analyticsData.reduce((sum, item) => {
-    const completionRate = item.completion_rate || 0;
-    const playCount = item.play_count || 0;
-    return sum + Math.floor((completionRate / 100) * playCount);
-  }, 0);
-
+  // Completion rates (a "skip" here means a play that wasn't completed)
   const completionRates = {
     completed: totalCompleted,
-    skipped: totalPlays - totalCompleted,
-    completionRate: totalPlays > 0 ? Math.round((totalCompleted / totalPlays) * 100) : 0
+    skipped: Math.max(0, totalPlays - totalCompleted),
+    completionRate: totalPlays > 0 ? Math.round((totalCompleted / totalPlays) * 100) : 0,
   };
 
   // Most played tracks
-  const mostPlayedTracks = playCountsByTrack.slice(0, 10).map(item => {
-    const analyticsItem = analyticsData.find(a => a.track_id === item.trackId);
-    return {
-      id: item.trackId,
-      title: item.title,
-      artist: item.artist,
-      playCount: item.playCount,
-      avgListenDuration: analyticsItem?.avg_listen_duration || 0,
-      trackType: item.trackType
-    };
-  });
+  const mostPlayedTracks = tracks
+    .slice()
+    .sort((a, b) => b.playCount - a.playCount)
+    .slice(0, 10)
+    .map((t) => ({
+      id: t.trackId,
+      ...resolveName(t.trackId),
+      playCount: t.playCount,
+      avgListenDuration: t.playCount > 0 ? Math.floor(t.totalListenTime / t.playCount) : 0,
+      trackType: t.trackType,
+    }));
 
   // Most skipped tracks
-  const mostSkippedTracks = analyticsData
-    .filter(item => (item.skip_count || 0) > 0)
-    .map(item => ({
-      id: item.track_id,
-      title: trackMap[item.track_id]?.title || 'Unknown Track',
-      artist: artistMap[trackMap[item.track_id]?.artist_id] || 'Unknown Artist',
-      skipCount: item.skip_count || 0,
-      trackType: item.track_type || 'audio'
-    }))
+  const mostSkippedTracks = tracks
+    .filter((t) => t.skipCount > 0)
     .sort((a, b) => b.skipCount - a.skipCount)
-    .slice(0, 10);
+    .slice(0, 10)
+    .map((t) => ({
+      id: t.trackId,
+      ...resolveName(t.trackId),
+      skipCount: t.skipCount,
+      trackType: t.trackType,
+    }));
 
-  // Favorite artists
-  const artistStats = analyticsData.reduce((acc, item) => {
-    const track = trackMap[item.track_id];
-    const artistId = track?.artist_id || 'unknown';
-    const artistName = artistMap[artistId] || 'Unknown Artist';
-    
-    if (!acc[artistId]) {
-      acc[artistId] = {
-        artistId,
-        artistName,
-        totalPlays: 0,
-        totalListeningTime: 0
-      };
-    }
-    
-    acc[artistId].totalPlays += item.play_count || 0;
-    acc[artistId].totalListeningTime += item.total_listen_time || 0;
-    
-    return acc;
-  }, {} as Record<string, {
+  // Favorite artists (grouped by resolved artist name)
+  type ArtistStat = {
     artistId: string;
     artistName: string;
     totalPlays: number;
     totalListeningTime: number;
-  }>);
+  };
+  const artistStats = tracks.reduce<Record<string, ArtistStat>>((acc, t) => {
+    const artistName = resolveName(t.trackId).artist;
+    const artistId = artistName;
+
+    if (!acc[artistId]) {
+      acc[artistId] = { artistId, artistName, totalPlays: 0, totalListeningTime: 0 };
+    }
+    acc[artistId].totalPlays += t.playCount;
+    acc[artistId].totalListeningTime += t.totalListenTime;
+    return acc;
+  }, {});
 
   const favoriteArtists = Object.values(artistStats)
     .sort((a, b) => b.totalPlays - a.totalPlays)
     .slice(0, 10);
 
   // Detailed analytics table
-  const detailedAnalytics = analyticsData.map(item => ({
-    trackId: item.track_id,
-    title: trackMap[item.track_id]?.title || 'Unknown Track',
-    artist: artistMap[trackMap[item.track_id]?.artist_id] || 'Unknown Artist',
-    trackType: item.track_type,
-    playCount: item.play_count || 0,
-    skipCount: item.skip_count || 0,
-    avgListenDuration: item.avg_listen_duration || 0,
-    completionRate: item.completion_rate || 0,
-    totalListenTime: item.total_listen_time || 0,
-    lastPlayedAt: item.last_played_at
-  })).sort((a, b) => b.playCount - a.playCount);
+  const detailedAnalytics = tracks
+    .map((t) => ({
+      trackId: t.trackId,
+      ...resolveName(t.trackId),
+      trackType: t.trackType,
+      playCount: t.playCount,
+      skipCount: t.skipCount,
+      avgListenDuration: t.playCount > 0 ? Math.floor(t.totalListenTime / t.playCount) : 0,
+      completionRate: t.playCount > 0 ? Math.round((t.completeCount / t.playCount) * 100) : 0,
+      totalListenTime: t.totalListenTime,
+      lastPlayedAt: t.lastPlayedAt,
+    }))
+    .sort((a, b) => b.playCount - a.playCount);
 
   return {
     totalPlays,
     totalListeningTime,
     favoriteTrack,
     playCountsByTrack,
-    listeningTimeline: timelineData,
+    listeningTimeline,
     completionRates,
     mostPlayedTracks,
     mostSkippedTracks,
     favoriteArtists,
-    detailedAnalytics
+    detailedAnalytics,
   };
 };

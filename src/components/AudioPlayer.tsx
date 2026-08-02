@@ -11,6 +11,7 @@ import { usePlaylistOrder } from '@/hooks/usePlaylistOrder';
 import { useTrackAnalytics } from '@/hooks/useTrackAnalytics';
 import { LyricsDisplay } from './LyricsDisplay';
 import { ShoppingCartIcon } from './ShoppingCartIcon';
+import { RecommendationShelf } from './RecommendationShelf';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
 import { HiOutlineQueueList, HiOutlinePlay, HiOutlinePause, HiOutlineBackward, HiOutlineForward, HiOutlineBars3 } from 'react-icons/hi2';
 import { BiShuffle, BiRepeat } from 'react-icons/bi';
@@ -510,7 +511,7 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
   }
 
   return (
-    <div className="h-screen bg-transparent relative overflow-hidden">
+    <div className="min-h-screen bg-transparent relative">
       {/* Lyrics Display Overlay */}
       <LyricsDisplay 
         track={currentTrack}
@@ -521,7 +522,7 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
 
       
       {/* Main Content */}
-      <div className="pt-48 pb-28 px-4 sm:px-6 h-full flex flex-col items-center justify-center">
+      <div className="pt-24 pb-28 px-4 sm:px-6 flex flex-col items-center">
         {/* Album Cover with Buy Button */}
         <div className="mb-4 relative">
           <div className="w-36 h-36 sm:w-48 sm:h-48 bg-secondary rounded-lg shadow-warm overflow-hidden">
@@ -777,6 +778,16 @@ export const AudioPlayer = ({ onTrackPlay, onPlayStateChange, onTimeUpdate }: Au
             )}
           </Card>
         )}
+
+        {/* Recommended for you */}
+        <RecommendationShelf
+          tracks={orderedTracks}
+          currentTrackId={currentTrack?.id}
+          onSelect={(trackId) => {
+            const idx = orderedTracks.findIndex((t) => t.id === trackId);
+            if (idx >= 0) handleTrackSelect(orderedTracks[idx], idx);
+          }}
+        />
 
         {/* Playlist Section */}
         <Card className="w-full max-w-md mt-4">

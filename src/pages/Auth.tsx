@@ -172,13 +172,11 @@ export default function Auth() {
     setIsLoading(true);
 
     try {
-      // First check if user exists
-      const { data: { users }, error: listError } = await supabase.auth.admin.listUsers();
-      
-      // Since we can't use admin API from client, we'll just send the reset email
-      // Supabase will only send if the user exists
+      // Supabase only sends the email if an account exists for this address, so we
+      // don't (and can't) look the user up first from the client. Send them to the
+      // /reset-password page, where the recovery link lets them set a new password.
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/`,
+        redirectTo: `${window.location.origin}/reset-password`,
       });
 
       if (error) {
